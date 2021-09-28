@@ -539,6 +539,20 @@ public class TestReadWrite {
         recordConsumer.endGroup();
         recordConsumer.endField("myrecordarray", index++);
 
+        recordConsumer.startField("myrecordarraywithsingleattribute", index);
+        recordConsumer.startGroup();
+        recordConsumer.startField("array", 0);
+        recordConsumer.startGroup();
+        recordConsumer.startField("a", 0);
+        for (int val : (int[]) record.get("myrecordarraywithsingleattributea")) {
+          recordConsumer.addInteger(val);
+        }
+        recordConsumer.endField("a", 0);
+        recordConsumer.endGroup();
+        recordConsumer.endField("array", 0);
+        recordConsumer.endGroup();
+        recordConsumer.endField("myrecordarraywithsingleattribute", index++);
+
         recordConsumer.startField("mymap", index);
         recordConsumer.startGroup();
         recordConsumer.startField("key_value", 0);
@@ -581,6 +595,7 @@ public class TestReadWrite {
       record.put("myarrayofoptional", new Integer[]{1, null, 2, null, 3});
       record.put("myrecordarraya", new int[]{1, 2, 3});
       record.put("myrecordarrayb", new int[]{4, 5, 6});
+      record.put("myrecordarraywithsingleattributea", new int[]{1, 2, 3});
       record.put("mymap", ImmutableMap.of("a", 1, "b", 2));
       record.put("myfixed", new byte[]{(byte) 65});
       parquetWriter.write(record);
@@ -609,6 +624,18 @@ public class TestReadWrite {
     GenericData.Array<GenericData.Record> genericRecordArray = new GenericData.Array<GenericData.Record>(
         Schema.createArray(recordArraySchema), recordArray);
 
+    Schema recordArrayWithSingleAttributeSchema = Schema.createRecord("array", null, null, false);
+    recordArrayWithSingleAttributeSchema.setFields(Arrays.asList(
+      new Schema.Field("a", Schema.create(Schema.Type.INT), null, null)
+    ));
+    GenericRecordBuilder recordArrayWithSingleAttributeBuilder = new GenericRecordBuilder(recordArrayWithSingleAttributeSchema);
+    List<GenericData.Record> recordArrayWithSingleAttribute = new ArrayList<>();
+    recordArrayWithSingleAttribute.add(recordArrayWithSingleAttributeBuilder.set("a", 1).build());
+    recordArrayWithSingleAttribute.add(recordArrayWithSingleAttributeBuilder.set("a", 2).build());
+    recordArrayWithSingleAttribute.add(recordArrayWithSingleAttributeBuilder.set("a", 3).build());
+    GenericData.Array<GenericData.Record> genericRecordArrayWithSingleAttribute = new GenericData.Array<>(
+      Schema.createArray(recordArrayWithSingleAttributeSchema), recordArrayWithSingleAttribute);
+
     GenericFixed genericFixed = new GenericData.Fixed(
         Schema.createFixed("fixed", null, null, 1), new byte[] { (byte) 65 });
 
@@ -628,6 +655,7 @@ public class TestReadWrite {
       assertEquals(integerArray, nextRecord.get("myoptionalarray"));
       assertEquals(ingeterArrayWithNulls, nextRecord.get("myarrayofoptional"));
       assertEquals(genericRecordArray, nextRecord.get("myrecordarray"));
+      assertEquals(genericRecordArrayWithSingleAttribute.toString(), nextRecord.get("myrecordarraywithsingleattribute").toString());
       assertEquals(ImmutableMap.of(str("a"), 1, str("b"), 2), nextRecord.get("mymap"));
       assertEquals(genericFixed, nextRecord.get("myfixed"));
     }
@@ -773,6 +801,62 @@ public class TestReadWrite {
       assertEquals("oof", r2.get("name").toString());
       assertEquals(321, r2.get("weight"));
     }
+  }
+
+  @Test
+  public void testReadAndWriteAvroRecordWithArrayyWithSingleAttribute() throws IOException {
+    // We have to test this here because the parquet-hadoop has no dependency on the parquet-avro module.
+    // As a result we can't reference the parquet-avro classes inside the parquet-hadoop module
+
+    File file = createTempFile();
+    Path path = new Path(file.getAbsolutePath());
+
+    Schema avroSchema = new Schema.Parser().parse(
+      "{\n" +
+        "  \"name\" : \"myrecord\",\n" +
+        "  \"namespace\": \"org.apache.parquet.avro\",\n" +
+        "  \"type\" : \"record\",\n" +
+        "  \"fields\" : [ {\n" +
+        "    \"name\" : \"myrecordarraywithsingleattribute\",\n" +
+        "    \"type\" : {\n" +
+        "      \"type\" : \"array\",\n" +
+        "      \"items\" : {\n" +
+        "        \"type\" : \"record\",\n" +
+        "        \"name\" : \"myarrayrecord\",\n" +
+        "        \"namespace\" : \"\",\n" +
+        "        \"fields\" : [ {\n" +
+        "          \"name\" : \"a\",\n" +
+        "          \"type\" : \"int\"\n" +
+        "        } ]\n" +
+        "      }\n" +
+        "    }\n" +
+        "  } ]\n" +
+        "}\n"
+    );
+
+    ParquetWriter<Object> parquetWriter = AvroParquetWriter.builder(path)
+      .withSchema(avroSchema)
+      .withConf(new Configuration())
+      .build();
+
+    Schema arrayRecordSchema = avroSchema.getField("myrecordarraywithsingleattribute").schema().getElementType();
+    List<GenericRecord> arrayRecords = Arrays.asList(
+      new GenericRecordBuilder(arrayRecordSchema).set("a", 1).build(),
+      new GenericRecordBuilder(arrayRecordSchema).set("a", 2).build(),
+      new GenericRecordBuilder(arrayRecordSchema).set("a", 3).build()
+    );
+
+    GenericRecord record = new GenericRecordBuilder(avroSchema)
+      .set("myrecordarraywithsingleattribute", arrayRecords)
+      .build();
+
+    parquetWriter.write(record);
+    parquetWriter.close();
+
+    ParquetReader<Object> parquetReader = AvroParquetReader.builder(path).withConf(new Configuration()).build();
+    Object result = parquetReader.read();
+
+    assertEquals(record, result);
   }
 
   private File createTempFile() throws IOException {

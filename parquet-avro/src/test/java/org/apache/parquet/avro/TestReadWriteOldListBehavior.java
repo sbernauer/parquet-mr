@@ -468,6 +468,20 @@ public class TestReadWriteOldListBehavior {
         recordConsumer.endGroup();
         recordConsumer.endField("myrecordarray", index++);
 
+        recordConsumer.startField("myrecordarraywithsingleattribute", index);
+        recordConsumer.startGroup();
+        recordConsumer.startField("array", 0);
+        recordConsumer.startGroup();
+        recordConsumer.startField("a", 0);
+        for (int val : (int[]) record.get("myrecordarraywithsingleattributea")) {
+          recordConsumer.addInteger(val);
+        }
+        recordConsumer.endField("a", 0);
+        recordConsumer.endGroup();
+        recordConsumer.endField("array", 0);
+        recordConsumer.endGroup();
+        recordConsumer.endField("myrecordarraywithsingleattribute", index++);
+
         recordConsumer.startField("mymap", index);
         recordConsumer.startGroup();
         recordConsumer.startField("map", 0);
@@ -510,6 +524,7 @@ public class TestReadWriteOldListBehavior {
       record.put("myarrayofoptional", new Integer[]{1, null, 2, null, 3});
       record.put("myrecordarraya", new int[]{1, 2, 3});
       record.put("myrecordarrayb", new int[]{4, 5, 6});
+      record.put("myrecordarraywithsingleattributea", new int[]{1, 2, 3});
       record.put("mymap", ImmutableMap.of("a", 1, "b", 2));
       record.put("myfixed", new byte[]{(byte) 65});
       parquetWriter.write(record);
@@ -536,6 +551,18 @@ public class TestReadWriteOldListBehavior {
     recordArray.add(builder.set("a", 3).set("b", 6).build());
     GenericData.Array<GenericData.Record> genericRecordArray = new GenericData.Array<GenericData.Record>(
         Schema.createArray(recordArraySchema), recordArray);
+
+    Schema recordArrayWithSingleAttributeSchema = Schema.createRecord("array", null, null, false);
+    recordArrayWithSingleAttributeSchema.setFields(Arrays.asList(
+      new Schema.Field("a", Schema.create(Schema.Type.INT), null, null)
+    ));
+    GenericRecordBuilder recordArrayWithSingleAttributeBuilder = new GenericRecordBuilder(recordArrayWithSingleAttributeSchema);
+    List<GenericData.Record> recordArrayWithSingleAttribute = new ArrayList<>();
+    recordArrayWithSingleAttribute.add(recordArrayWithSingleAttributeBuilder.set("a", 1).build());
+    recordArrayWithSingleAttribute.add(recordArrayWithSingleAttributeBuilder.set("a", 2).build());
+    recordArrayWithSingleAttribute.add(recordArrayWithSingleAttributeBuilder.set("a", 3).build());
+    GenericData.Array<GenericData.Record> genericRecordArrayWithSingleAttribute = new GenericData.Array<>(
+      Schema.createArray(recordArrayWithSingleAttributeSchema), recordArrayWithSingleAttribute);
 
     GenericFixed genericFixed = new GenericData.Fixed(
         Schema.createFixed("fixed", null, null, 1), new byte[] { (byte) 65 });
@@ -570,6 +597,7 @@ public class TestReadWriteOldListBehavior {
       assertEquals(integerArray, nextRecord.get("myoptionalarray"));
       assertEquals(genericRecordArrayWithNullIntegers, nextRecord.get("myarrayofoptional"));
       assertEquals(genericRecordArray, nextRecord.get("myrecordarray"));
+      assertEquals(genericRecordArrayWithSingleAttribute.toString(), nextRecord.get("myrecordarraywithsingleattribute").toString());
       assertEquals(ImmutableMap.of(str("a"), 1, str("b"), 2), nextRecord.get("mymap"));
       assertEquals(genericFixed, nextRecord.get("myfixed"));
     }

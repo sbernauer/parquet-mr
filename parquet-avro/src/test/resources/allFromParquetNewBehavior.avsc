@@ -65,11 +65,25 @@
         "name" : "array",
         "namespace" : "",
         "fields" : [ {
-           "name" : "a",
-           "type" : "int"
+          "name" : "a",
+          "type" : "int"
         }, {
-           "name" : "b",
-           "type" : "int"
+          "name" : "b",
+          "type" : "int"
+        } ]
+      }
+    }
+  }, {
+    "name" : "myrecordarraywithsingleattribute",
+    "type" : {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "array",
+        "namespace": "array2",
+        "fields" : [ {
+          "name" : "a",
+          "type" : "int"
         } ]
       }
     }

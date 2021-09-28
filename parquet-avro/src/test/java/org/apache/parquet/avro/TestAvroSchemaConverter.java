@@ -101,6 +101,11 @@ public class TestAvroSchemaConverter {
       "      required int32 b;\n" +
       "    }\n" +
       "  }\n" +
+      "  required group myrecordarraywithsingleattribute (LIST) {\n" +
+      "    repeated group array {\n" +
+      "      required int32 a;\n" +
+      "    }\n" +
+      "  }\n" +
       "  required group mymap (MAP) {\n" +
       "    repeated group map (MAP_KEY_VALUE) {\n" +
       "      required binary key (UTF8);\n" +
