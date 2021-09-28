@@ -189,8 +189,12 @@ public class AvroSchemaConverter {
       builder = Types.primitive(BINARY, repetition).as(enumType());
     } else if (type.equals(Schema.Type.ARRAY)) {
       if (writeOldListStructure) {
+        String arrayFieldName = "array";
+        if (schema.getElementType().getType().equals(Schema.Type.RECORD)) {
+          arrayFieldName = schema.getElementType().getName();
+        }
         return ConversionPatterns.listType(repetition, fieldName,
-            convertField("array", schema.getElementType(), REPEATED, schemaPath));
+            convertField(arrayFieldName, schema.getElementType(), REPEATED, schemaPath));
       } else {
         return ConversionPatterns.listOfElements(repetition, fieldName,
             convertField(AvroWriteSupport.LIST_ELEMENT_NAME, schema.getElementType(), schemaPath));
